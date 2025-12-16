@@ -11,11 +11,15 @@ import { TemperatureSchema, TemperatureUnitSchema } from '../value-objects/tempr
  * }
  */
 
-export const MonthlyTemperatureRangeSchema = z.object({
-    id: z.string(),
-    month: z.int().min(1).max(12),
-    min: TemperatureSchema,
-    max: TemperatureSchema,
-})
+export const MonthlyTemperatureRangeSchema = z
+    .object({
+        id: z.string(),
+        month: z.number().int().min(1).max(12),
+        min: TemperatureSchema,
+        max: TemperatureSchema,
+        createdAt: z.string().or(z.date()).optional(),
+        updatedAt: z.string().or(z.date()).optional(),
+    })
+    .passthrough()
 
 export type MonthlyTemperatureRange = z.infer<typeof MonthlyTemperatureRangeSchema>

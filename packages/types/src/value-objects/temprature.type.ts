@@ -5,7 +5,7 @@ export const TemperatureUnitSchema = z.union([
     z.literal('F'),
 ])
 
-type TemperatureUnit = z.infer<typeof TemperatureUnitSchema>
+export type TemperatureUnit = z.infer<typeof TemperatureUnitSchema>
 
 /* { value: 44, unit: 'F' } */
 export const TemperatureSchema = z.object({
@@ -13,7 +13,7 @@ export const TemperatureSchema = z.object({
     unit: TemperatureUnitSchema,
 })
 
-type Temperature = z.infer<typeof TemperatureSchema>
+export type Temperature = z.infer<typeof TemperatureSchema>
 
 
 

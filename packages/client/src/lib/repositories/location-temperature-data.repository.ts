@@ -32,7 +32,7 @@ export class LocationTemperatureDataRepository extends Repository<Location, stri
 					headers: {
 						'Content-Type': 'application/json',
 					},
-					body: JSON.stringify(request),
+					body: JSON.stringify({ temperature: request.temperature }),
 				},
 			)
 

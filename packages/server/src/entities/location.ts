@@ -9,7 +9,7 @@ export class Location extends PeashootEntity<'loc'> {
 	}
 
 	@OneToMany(() => MonthlyTemperatureRange, (range) => range.location)
-		monthlyTemps!: MonthlyTemperatureRange[]
+	monthlyTemperatures!: MonthlyTemperatureRange[]
 	@Column('text')
 	name!: string
 
