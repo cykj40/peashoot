@@ -1,5 +1,6 @@
-import { Entity, Column } from 'typeorm'
+import { Entity, Column, OneToMany } from 'typeorm'
 import { PeashootEntity } from './peashoot-entity.js'
+import { MonthlyTemperatureRange } from './monthly-temperature-range.js'
 
 @Entity()
 export class Location extends PeashootEntity<'loc'> {
@@ -7,6 +8,8 @@ export class Location extends PeashootEntity<'loc'> {
 		super('loc')
 	}
 
+	@OneToMany(() => MonthlyTemperatureRange, (range) => range.location)
+		monthlyTemps!: MonthlyTemperatureRange[]
 	@Column('text')
 	name!: string
 
