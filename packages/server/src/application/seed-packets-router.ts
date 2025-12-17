@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { SeedPacketsService } from '../services/seed-packets-service.js'
 import { asyncHandler } from './middlewares/async-handler.js'
 import { Logger } from 'winston'
-import { ListPacketsResponse } from '@peashoot/types'
+import { ListPacketsResponse, SeedPacketMetadata, convertDistanceToFeet } from '@peashoot/types'
 
 export function createSeedPacketRouter(logger: Logger): Router {
 	const router = Router()
@@ -24,8 +24,10 @@ export function createSeedPacketRouter(logger: Logger): Router {
 					},
 					metadata: {
 						quantity: packet.quantity,
-						plantingDistance: packet.plantingDistance,
-					},
+						plantingDistance: convertDistanceToFeet(packet.plantingDistance).value,
+						daysToHarvest: 0, // TODO: Add this field to the seed data
+						expiresAt: packet.expiresAt,
+					} satisfies SeedPacketMetadata,
 				}))
 				res.json(response)
 			} catch (error) {
