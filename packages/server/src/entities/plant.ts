@@ -1,5 +1,7 @@
 import { Entity, Column, ManyToOne } from 'typeorm'
 import { SeedPacket } from './seed-packet.js'
+import { XYCoordinate } from '../values/xy-coordinate.js'
+import { Bed } from './bed.js'
 import { PeashootEntity } from './peashoot-entity.js'
 import { RGBColor } from '../values/rgb-color.js'
 import { Distance } from '../values/distance.js'
@@ -13,6 +15,9 @@ export class Plant extends PeashootEntity<'plant'> {
 
 	@ManyToOne(() => SeedPacket, (seedPacket) => seedPacket.plants, { nullable: false })
 	seedPacket!: SeedPacket
+
+	@ManyToOne(() => Bed, (bed) => bed.plants, { nullable: false })
+	bed!: Bed
 
 	@Column(() => RGBColor)
 	accentColor!: RGBColor
@@ -28,4 +33,7 @@ export class Plant extends PeashootEntity<'plant'> {
 
 	@Column(() => Presentation)
 	presentation!: Presentation
+
+	@Column(() => XYCoordinate)
+	position!: XYCoordinate
 }

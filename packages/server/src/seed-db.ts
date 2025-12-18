@@ -57,25 +57,25 @@ export async function loadSeedsIntoDb(logger: Logger) {
 	logger.info(`${packets.length} seed packets saved`)
 }
 
-export async function generatePlants(logger: Logger) {
-	const plantRepo = AppDataSource.getRepository(Plant)
-	const packetRepo = AppDataSource.getRepository(SeedPacket)
-	const plantsService = new PlantsService()
-	const packets = await packetRepo.find()
-	logger.info(`Found ${packets.length} packets`)
-	for (const packet of packets) {
-		const plant = await plantRepo.save(
-			plantsService.generatePlantFromSeedPacket(plantRepo, packet),
-		)
-	}
-	logger.info(`${packets.length} plants saved`)
-}
+// export async function generatePlants(logger: Logger) {
+// 	const plantRepo = AppDataSource.getRepository(Plant)
+// 	const packetRepo = AppDataSource.getRepository(SeedPacket)
+// 	const plantsService = new PlantsService()
+// 	const packets = await packetRepo.find()
+// 	logger.info(`Found ${packets.length} packets`)
+// 	for (const packet of packets) {
+// 		const plant = await plantRepo.save(
+// 			plantsService.generatePlantFromSeedPacket(plantRepo, packet),
+// 		)
+// 	}
+// 	logger.info(`${packets.length} plants saved`)
+// }
 
 export async function initializeNewDbWithData(logger: Logger) {
 	await AppDataSource.initialize()
 	const gardensService = new GardensService()
 	await loadSeedsIntoDb(logger)
-	await generatePlants(logger)
+	// await generatePlants(logger)
 	await gardensService.createExampleGarden(logger)
 	await loadTemperatureData(logger)
 }

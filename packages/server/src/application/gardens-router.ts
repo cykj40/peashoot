@@ -17,7 +17,25 @@ export function createGardenRouter(_logger: Logger): Router {
 				name: garden.name,
 				description: garden.description,
 				indicators: [],
-				zones: [],
+				zones: garden.beds.map((bed): Zone => {
+					return {
+						name: "test garden bed",
+						description: "",
+						placements: [{
+							id: '1',
+							position: {
+								x: 1,
+								y: 0,
+								sourceZoneId: '',
+								item: {},
+							},
+
+						}],
+						id: bed.id,
+						width: bed.width,
+						height: bed.height,
+					}
+				}),
 				metadata: {},
 			})) satisfies ListWorkspacesResponse
 			res.json(response)
