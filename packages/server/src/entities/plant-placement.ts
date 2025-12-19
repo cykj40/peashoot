@@ -11,7 +11,7 @@ export class PlantPlacement extends PeashootEntity<'plant_placement'> {
         super('plant_placement')
     }
 
-    @ManyToOne(() => Plant, (g) => g.beds)
+    @ManyToOne(() => Plant, (p) => p.bed)
     plant!: Plant
 
 }

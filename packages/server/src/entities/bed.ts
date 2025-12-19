@@ -20,5 +20,11 @@ export class Bed extends PeashootEntity<'bed'> {
 
     @Column('real')
     height!: number
+
+    @Column({ type: 'text', default: 'Garden Bed' })
+    name!: string
+
+    @Column({ type: 'text', default: '' })
+    description!: string
 }
 

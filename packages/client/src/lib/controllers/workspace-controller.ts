@@ -80,8 +80,7 @@ export interface IWorkspaceController<T extends Item = Item> {
  * including validation rules and feature enablement
  */
 export class WorkspaceController<T extends Item = Item>
-	implements IWorkspaceController<T>
-{
+	implements IWorkspaceController<T> {
 	private placementValidationRules: ValidationRule<T>[] = []
 	private deletionValidationRules: ValidationRule<T>[] = []
 	private featureFlags: WorkspaceFeatureFlags
@@ -95,7 +94,7 @@ export class WorkspaceController<T extends Item = Item>
 		this.featureFlags = {
 			canDragItemsWithinZone: true,
 			canDragItemsAcrossZones: true,
-			canAddItems: false,
+			canAddItems: true,
 			canRemoveItems: true,
 			canCloneItems: true,
 			showValidationIndicators: false,

@@ -1,138 +1,91 @@
 <script lang="ts" generics="TItem extends Item">
-import type { GridItemPresentation, GridPlaceable } from '../grid-placement'
 import { dragManager } from '../../dnd/drag-manager'
 import { dragState } from '../../dnd/state'
 import GridPlacementTile from '../ui/GridPlacementTile.svelte'
 import { DEFAULT_LAYOUT_PARAMS } from '../grid-layout-constants'
 import { clickOrHold } from '../actions/clickOrHold'
-import type { WithVisualPresentation } from '../grid-placement'
 import type { Item, ItemPlacement } from '@peashoot/types'
 
-export interface GridToolbarProps<TItem extends WithVisualPresentation> {
+export interface GridToolbarProps<TItem extends Item> {
 	items: TItem[]
 	[k: string]: unknown
 }
 
-interface ToolbarGridItemCategory extends GridPlaceable {
-	displayName: string
-	presentation: GridItemPresentation
-	items: GridPlaceable[]
-}
-
 const { items = [], ...rest }: GridToolbarProps<TItem> = $props()
 
-const itemListToToolbarCategories = (itemList: TItem[]): ToolbarGridItemCategory[] => {
-	const categories = new Map<string, ToolbarGridItemCategory>()
-	for (const item of itemList) {
-		const itemCategory = item.category
-		const category = categories.get(itemCategory)
-		if (!category) {
-			// Create a new family and add the current plant as the first variant
-			categories.set(itemCategory, {
-				id: item.id,
-				size: item.size,
-				displayName: itemCategory,
-				presentation: { ...item.presentation },
-				items: [
-					{
-						id: item.id,
-						size: item.size,
-						displayName: item.displayName,
-						presentation: { ...item.presentation },
-					},
-				],
-			})
-		} else {
-			category.items.push({
-				id: item.id,
-				size: item.size,
-				displayName: item.displayName,
-				presentation: { ...item.presentation },
-			})
+// Group items by category
+interface ToolbarCategory {
+	category: string
+	items: TItem[]
+	representativeItem: TItem // The first item to show as the icon
+}
+
+function itemListToToolbarCategories(items: TItem[]): ToolbarCategory[] {
+	const categoryMap = new Map<string, TItem[]>()
+
+	for (const item of items) {
+		const category = item.category
+		if (!categoryMap.has(category)) {
+			categoryMap.set(category, [])
+		}
+		const categoryItems = categoryMap.get(category)
+		if (categoryItems) {
+			categoryItems.push(item)
 		}
 	}
-	return Array.from(categories.values())
+
+	return Array.from(categoryMap.entries()).map(([category, categoryItems]) => ({
+		category,
+		items: categoryItems,
+		representativeItem: categoryItems[0],
+	}))
 }
 
-const categories = itemListToToolbarCategories(items)
+const categories = $derived(itemListToToolbarCategories(items))
 
-// Track selected variants for each plant family
-let categorySelectedItems: Record<string, string> = $state(
-	categories.reduce<Record<string, string>>((acc, category) => {
-		acc[category.displayName] = category.items[0].displayName
-		return acc
-	}, {}),
-)
+// Track which category dropdown is open
+let openDropdown = $state<string | null>(null)
 
-// Track which dropdown is currently open
-let openDropdown: string | null = $state(null)
+// Track selected item for each category (defaults to first item)
+const categorySelectedItems = $state<Map<string, TItem>>(new Map())
 
-// Toggle dropdown for a plant family
-function toggleDropdown(categoryName: string) {
-	if (openDropdown === categoryName) {
-		openDropdown = null
-	} else {
-		openDropdown = categoryName
-	}
+function toggleDropdown(category: string) {
+	openDropdown = openDropdown === category ? null : category
 }
 
-// Select a variant and close dropdown
-function selectCategoryItem(categoryName: string, itemName: string) {
-	categorySelectedItems = { ...categorySelectedItems, [categoryName]: itemName }
+function selectCategoryItem(category: string, item: TItem) {
+	categorySelectedItems.set(category, item)
 	openDropdown = null
 }
 
 // Handle starting drag from toolbar
-function handleToolbarDrag(categoryName: string, event: MouseEvent | TouchEvent) {
-	const categoryItem = categorySelectedItems[categoryName]
-	const plant = createItem(categoryName, categoryItem)
-	dragManager.startDraggingNewItem(plant, event)
-}
-
-// Close dropdown when clicking outside
-function handleClickOutside(event: MouseEvent) {
-	const target = event.target as Element
-	if (!target.closest('.plant-toolbar__item')) {
-		openDropdown = null
-	}
-}
-
-// Create a plant object from family and variant
-function createItem(categoryName: string, categoryItemName: string): TItem {
-	const item = items.find(
-		(itm) => itm.category === categoryName && itm.displayName === categoryItemName,
-	)
-	if (!item) {
-		throw new Error(`Item not found: ${categoryName} ${categoryItemName}`)
-	}
-	return item
+function handleToolbarDrag(item: TItem, event: MouseEvent | TouchEvent) {
+	dragManager.startDraggingNewItem(item, event)
 }
 
 // Create a GridPlacement for toolbar display
-function createToolbarGridPlacement(
-	categoryName: string,
-	categoryItemName: string,
-): ItemPlacement {
-	const item = items.find(
-		(itm) => itm.category === categoryName && itm.displayName === categoryItemName,
-	)
-	if (!item) {
-		throw new Error(`Item not found: ${categoryName} ${categoryItemName}`)
-	}
+function createToolbarGridPlacement(item: TItem): ItemPlacement {
 	return {
-		id: `gridplacement_${categoryName}_${categoryItemName}`,
+		id: `toolbar_placement_${item.id}`,
 		position: { x: 0, y: 0 },
 		item: item,
-		sourceZoneId: 'toolbar', // Required by ExistingDraggableItem
+		sourceZoneId: 'toolbar',
 	}
 }
 
-// Calculate tile size for toolbar (always 1x1 display, but show size indicator)
+// Calculate tile size for toolbar
 const toolbarTileSize = DEFAULT_LAYOUT_PARAMS.cellSize
+
+// Close dropdown when clicking outside
+function handleClickOutside(event: MouseEvent) {
+	const target = event.target as HTMLElement
+	if (!target.closest('.plant-toolbar__category')) {
+		openDropdown = null
+	}
+}
 </script>
 
 <style lang="scss">
-/* Only keep custom styles for pseudo-elements and animation */
 .plant-toolbar__tile-container--size-2::before {
 	content: '2×2';
 	position: absolute;
@@ -145,8 +98,37 @@ const toolbarTileSize = DEFAULT_LAYOUT_PARAMS.cellSize
 	border-radius: 2px;
 	z-index: 10;
 }
+
 .plant-toolbar__dropdown {
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	margin-top: 8px;
+	background: white;
+	border: 2px solid rgba(0, 0, 0, 0.2);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	padding: 8px;
+	z-index: 1000;
+	min-width: 200px;
+	max-height: 300px;
+	overflow-y: auto;
+
 	&::before {
+		content: '';
+		position: absolute;
+		top: -8px;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 0;
+		height: 0;
+		border-left: 8px solid transparent;
+		border-right: 8px solid transparent;
+		border-bottom: 8px solid rgba(0, 0, 0, 0.2);
+	}
+
+	&::after {
 		content: '';
 		position: absolute;
 		top: -6px;
@@ -156,25 +138,47 @@ const toolbarTileSize = DEFAULT_LAYOUT_PARAMS.cellSize
 		height: 0;
 		border-left: 6px solid transparent;
 		border-right: 6px solid transparent;
-		border-bottom: 6px solid #e9ecef;
-	}
-	&::after {
-		content: '';
-		position: absolute;
-		top: -4px;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 0;
-		height: 0;
-		border-left: 4px solid transparent;
-		border-right: 4px solid transparent;
-		border-bottom: 4px solid white;
+		border-bottom: 6px solid white;
 	}
 }
+
+.plant-toolbar__dropdown-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background-color 0.15s;
+
+	&:hover {
+		background-color: #f0f0f0;
+	}
+
+	&--selected {
+		background-color: #e3f2fd;
+	}
+}
+
+.plant-toolbar__category-badge {
+	position: absolute;
+	bottom: 2px;
+	right: 2px;
+	background: rgba(0, 0, 0, 0.7);
+	color: white;
+	font-size: 10px;
+	padding: 2px 4px;
+	border-radius: 3px;
+	z-index: 10;
+	pointer-events: none;
+}
+
 .plant-toolbar-item {
 	transition: all 0.2s;
 }
 </style>
+
+<svelte:window onclick={handleClickOutside} />
 
 <div
 	{...rest}
@@ -183,47 +187,42 @@ const toolbarTileSize = DEFAULT_LAYOUT_PARAMS.cellSize
 	<div
 		class="plant-toolbar__grid grid grid-cols-[repeat(auto-fit,minmax(60px,1fr))] gap-1"
 	>
-		{#each categories as category (category.displayName)}
-			{@const selectedItem = categorySelectedItems[category.displayName]}
-			{@const toolbarPlacement = createToolbarGridPlacement(
-				category.displayName,
-				selectedItem,
-			)}
+		{#each categories as { category, items: categoryItems, representativeItem } (category)}
+			{@const selectedItem = categorySelectedItems.get(category) || representativeItem}
+			{@const toolbarPlacement = createToolbarGridPlacement(selectedItem)}
+			{@const isDropdownOpen = openDropdown === category}
 
 			<div
-				class="plant-toolbar__item flex flex-col items-center gap-1 relative overflow-visible"
+				class="plant-toolbar__category plant-toolbar__item flex flex-col items-center gap-1 relative overflow-visible"
 			>
-				<!-- Main tile (selected variant) -->
+				<!-- Category tile -->
 				<div
 					class={`plant-toolbar__tile-container relative w-[60px] h-[60px] flex items-center justify-center rounded-md border-2 border-black/40 box-border shadow-md user-select-none cursor-grab transition-transform transition-shadow duration-100 overflow-visible
-					${category.items[0].size === 2 ? 'plant-toolbar__tile-container--size-2' : ''}
-					${category.items.length > 1 ? 'plant-toolbar__tile-container--clickable cursor-pointer' : ''}
-					${openDropdown === category.displayName ? 'plant-toolbar__tile-container--open border-blue-500 shadow-lg' : ''}`}
+					${selectedItem.size > 1 ? 'plant-toolbar__tile-container--size-2' : ''}`}
 					role="button"
 					tabindex="0"
 					use:clickOrHold={{
 						onClick: () => {
-							if (category.items.length > 1) {
-								toggleDropdown(category.displayName)
+							if (categoryItems.length > 1) {
+								toggleDropdown(category)
 							}
 						},
 						onHold: (e) => {
-							handleToolbarDrag(category.displayName, e)
+							handleToolbarDrag(selectedItem, e)
 						},
 					}}
 					onkeydown={(e) => {
 						if (e.key === 'Enter' || e.key === ' ') {
 							e.preventDefault()
-							if (category.items.length > 1) {
-								toggleDropdown(category.displayName)
+							if (categoryItems.length > 1) {
+								toggleDropdown(category)
 							} else {
-								// Synthesize a mousedown event for drag initiation on keydown for single variant items
 								const syntheticEvent = new MouseEvent('mousedown', {
 									clientX: 0,
 									clientY: 0,
 									bubbles: true,
 								})
-								handleToolbarDrag(category.displayName, syntheticEvent)
+								handleToolbarDrag(selectedItem, syntheticEvent)
 							}
 						}
 					}}
@@ -233,66 +232,54 @@ const toolbarTileSize = DEFAULT_LAYOUT_PARAMS.cellSize
 						sizePx={toolbarTileSize}
 						showSizeBadge={true}
 					/>
-
-					<!-- Dropdown arrow for families with multiple variants -->
-					{#if category.items.length > 1}
-						<div
-							class="plant-toolbar__dropdown-arrow absolute bottom-1 right-1 text-[8px] text-black/60 pointer-events-none"
-						>
-							{openDropdown === category.displayName ? '▲' : '▼'}
+					{#if categoryItems.length > 1}
+						<div class="plant-toolbar__category-badge">
+							{categoryItems.length}
 						</div>
 					{/if}
 				</div>
 
-				<!-- Dropdown with variant options -->
-				{#if openDropdown === category.displayName && category.items.length > 1}
-					<div
-						class="plant-toolbar__dropdown absolute top-full left-1/2 -translate-x-1/2 bg-white border-2 border-gray-200 rounded-lg p-2 shadow-lg z-[9999] flex flex-col items-center gap-1 min-w-[70px]"
-					>
-						{#each category.items as item (item.displayName)}
-							{@const gridPlacement = createToolbarGridPlacement(
-								category.displayName,
-								item.displayName,
-							)}
+				<!-- Dropdown for multiple items in category -->
+				{#if isDropdownOpen && categoryItems.length > 1}
+					<div class="plant-toolbar__dropdown">
+						{#each categoryItems as item (item.id)}
+							{@const itemPlacement = createToolbarGridPlacement(item)}
 							<div
-								class={`plant-toolbar__tile-container plant-toolbar__tile-container--variant relative w-[50px] h-[50px] flex items-center justify-center rounded-md border-2 border-black/40 box-border shadow-md user-select-none cursor-pointer transition-transform transition-shadow duration-100 overflow-visible
-								${item.size === 2 ? 'plant-toolbar__tile-container--size-2' : ''}`}
+								class="plant-toolbar__dropdown-item"
+								class:plant-toolbar__dropdown-item--selected={selectedItem.id === item.id}
 								role="button"
 								tabindex="0"
-								use:clickOrHold={{
-									onClick: () => {
-										selectCategoryItem(category.displayName, item.displayName)
-									},
-									onHold: (e) => {
-										selectCategoryItem(category.displayName, item.displayName) // Select first, then drag
-										handleToolbarDrag(category.displayName, e)
-									},
+								onclick={() => {
+									selectCategoryItem(category, item)
 								}}
 								onkeydown={(e) => {
 									if (e.key === 'Enter' || e.key === ' ') {
 										e.preventDefault()
-										e.stopPropagation() // Prevent main tile keydown
-										selectCategoryItem(category.displayName, item.displayName)
+										selectCategoryItem(category, item)
 									}
 								}}
 							>
-								<GridPlacementTile
-									placement={gridPlacement}
-									sizePx={46}
-									showSizeBadge={true}
-								/>
+								<div class="w-[40px] h-[40px] flex-shrink-0">
+									<GridPlacementTile
+										placement={itemPlacement}
+										sizePx={40}
+										disableTooltip={true}
+									/>
+								</div>
+								<div class="flex-1">
+									<div class="font-medium text-sm">{item.displayName}</div>
+									<div class="text-xs text-gray-500">{item.variant}</div>
+								</div>
 							</div>
 						{/each}
 					</div>
 				{/if}
 
+				<!-- Label -->
 				<div class="plant-toolbar__label text-xs font-medium text-gray-500 text-center">
-					{category.displayName}
+					{category}
 				</div>
 			</div>
 		{/each}
 	</div>
 </div>
-
-<!-- Global click handler to close dropdowns -->
-<svelte:window onclick={handleClickOutside} />

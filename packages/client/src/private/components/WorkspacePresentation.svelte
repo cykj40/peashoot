@@ -328,7 +328,9 @@ const getColSpanClass = (zoneId: string) => {
 						<div class="meters-row">
 							<HorizontalBarMeter
 								id={`${zone.id}-water`}
-								value={2}
+								value={'waterLevel' in zone
+									? (zone as { waterLevel: number }).waterLevel
+									: 5}
 								max={5}
 								filledColor="#3498db"
 								emptyColor="#3498db22"
@@ -338,7 +340,7 @@ const getColSpanClass = (zoneId: string) => {
 							/>
 							<HorizontalBarMeter
 								id={`${zone.id}-sun`}
-								value={3}
+								value={'sunLevel' in zone ? (zone as { sunLevel: number }).sunLevel : 5}
 								max={5}
 								filledColor="#FFD600"
 								emptyColor="#FFD60022"
