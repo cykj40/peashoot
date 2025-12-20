@@ -13,7 +13,7 @@ export interface GridToolbarProps<TItem extends Item> {
 
 const { items = [], ...rest }: GridToolbarProps<TItem> = $props()
 
-// Group items by category
+// Group items by category, but deduplicate by unique combination of category + variant + displayName
 interface ToolbarCategory {
 	category: string
 	items: TItem[]
@@ -22,8 +22,18 @@ interface ToolbarCategory {
 
 function itemListToToolbarCategories(items: TItem[]): ToolbarCategory[] {
 	const categoryMap = new Map<string, TItem[]>()
+	const seenItems = new Set<string>()
 
 	for (const item of items) {
+		// Create a unique key for deduplication: category + variant + displayName
+		const uniqueKey = `${item.category}|${item.variant}|${item.displayName}`
+
+		// Skip if we've already seen this exact item
+		if (seenItems.has(uniqueKey)) {
+			continue
+		}
+		seenItems.add(uniqueKey)
+
 		const category = item.category
 		if (!categoryMap.has(category)) {
 			categoryMap.set(category, [])
@@ -148,11 +158,16 @@ function handleClickOutside(event: MouseEvent) {
 	gap: 8px;
 	padding: 8px;
 	border-radius: 4px;
-	cursor: pointer;
+	cursor: grab;
 	transition: background-color 0.15s;
+	user-select: none;
 
 	&:hover {
 		background-color: #f0f0f0;
+	}
+
+	&:active {
+		cursor: grabbing;
 	}
 
 	&--selected {
@@ -249,8 +264,14 @@ function handleClickOutside(event: MouseEvent) {
 								class:plant-toolbar__dropdown-item--selected={selectedItem.id === item.id}
 								role="button"
 								tabindex="0"
-								onclick={() => {
-									selectCategoryItem(category, item)
+								use:clickOrHold={{
+									onClick: () => {
+										selectCategoryItem(category, item)
+									},
+									onHold: (e) => {
+										// Start dragging from dropdown item
+										handleToolbarDrag(item, e)
+									},
 								}}
 								onkeydown={(e) => {
 									if (e.key === 'Enter' || e.key === ' ') {
